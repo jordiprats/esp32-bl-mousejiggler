@@ -1,0 +1,26 @@
+# PlatformIO build artifacts
+.pio/
+.pioenvs/
+.pioverride/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Compiled / generated files
+*.o
+*.d
+*.a
+*.bin
+*.elf
+*.map
+*.hex
+*.checksum
+.sconsign*
