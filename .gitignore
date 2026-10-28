@@ -3,6 +3,9 @@
 .pioenvs/
 .pioverride/
 
+# Local BLE identity override (trademark-safe)
+src/config.local.h
+
 # IDE / editor
 .vscode/
 .idea/

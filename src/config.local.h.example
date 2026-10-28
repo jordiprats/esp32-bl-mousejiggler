@@ -1,0 +1,8 @@
+// Local override for BLE device identity 
+// Copy this file to config.local.h and customise the strings.
+// config.local.h is gitignored – it will not be committed.
+//
+#pragma once
+
+#define BLE_DEVICE_NAME  "Mouse Jiggler"
+#define BLE_MANUFACTURER "DIY Electronics"

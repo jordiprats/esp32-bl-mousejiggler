@@ -1,0 +1,20 @@
+# Runs the native unit tests on every push / PR.
+# No hardware needed – battery & timing logic is platform-independent.
+
+name: test
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Run unit tests
+        run: pio test --environment test

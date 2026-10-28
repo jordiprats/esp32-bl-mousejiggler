@@ -1,110 +1,88 @@
 #include <Arduino.h>
 #include <BleMouse.h>
 #include <esp_sleep.h>
-#include <esp_system.h>
+#include <config.h>
+#include <battery.h>
+#include <timing.h>
 
-// ── RTC-retained variables (survive deep sleep) ──
+// Optional local override for BLE device identity
+// Use a config.local.h in src/ to set realistic names
+#ifdef __has_include
+#if __has_include("config.local.h")
+#include "config.local.h"
+#endif
+#endif
+
+#ifndef BLE_DEVICE_NAME
+#define BLE_DEVICE_NAME  "ESP32 Mouse"
+#endif
+#ifndef BLE_MANUFACTURER
+#define BLE_MANUFACTURER "Espressif"
+#endif
+
+// RTC-retained variables (survive deep sleep)
 RTC_DATA_ATTR uint8_t      rtcBatteryLevel    = 0;
 RTC_DATA_ATTR unsigned long rtcLastBatteryDrop = 0;
 RTC_DATA_ATTR bool         rtcBatteryInit     = false;
+RTC_DATA_ATTR unsigned int rtcMoveIndex       = 0;
 
-// ── Globals ──
-BleMouse bleMouse("MX Master 4", "Logitech", 100);
+// Globals
+BleMouse       bleMouse(BLE_DEVICE_NAME, BLE_MANUFACTURER, 100);
+BatterySimulator battery;
+TimingGenerator  timing;
 
-unsigned long lastBatteryDrop   = 0;
 unsigned long lastConnectedTime = 0;
-unsigned long lastFluctuation   = 0;
-
-const unsigned long DISCONNECT_TIMEOUT   = 300000;     // 5 minutes
-const uint64_t     DEEP_SLEEP_US        = 30 * 1000000ULL;   // 30 seconds
-const unsigned long FLUCTUATION_INTERVAL = 7200000UL;  // 2 hours
-
-// ── Dynamic drain interval based on battery level ──
-unsigned long getDropInterval() {
-  if (rtcBatteryLevel > 80) return 21600000UL;    // 6 h  (top plateau)
-  if (rtcBatteryLevel > 30) return 14400000UL;    // 4 h  (normal range)
-  if (rtcBatteryLevel > 10) return  7200000UL;    // 2 h  (low warning)
-  return                      3600000UL;           // 1 h  (critical)
-}
-
-// ── Helper: maybe do an idle pause (10–100 s) with ~10% chance ──
-void maybeIdlePause() {
-  if (esp_random() % 100 < 10) {                    // ~10 % chance per move
-    unsigned long pause = 10000 + (esp_random() % 90001);   // 10–100 s
-    delay(pause);
-    if (bleMouse.isConnected()) {
-      lastConnectedTime = millis();
-    }
-  }
-}
 
 void setup() {
-  // ── Battery persistence ──
-  if (!rtcBatteryInit || rtcBatteryLevel < 15) {
-    rtcBatteryLevel = 60 + (esp_random() % 41);   // 60 … 100
-    rtcBatteryInit = true;
-  }
-  bleMouse.batteryLevel = rtcBatteryLevel;
+  // Battery persistence
+  battery.init(rtcBatteryLevel, rtcBatteryInit);
+  rtcBatteryLevel = battery.level();
+  rtcBatteryInit  = true;
+  bleMouse.batteryLevel = battery.level();
 
-  // ── Restore battery-drop timer ──
-  lastBatteryDrop = millis();
-  if (lastBatteryDrop < rtcLastBatteryDrop) {
-    rtcLastBatteryDrop = lastBatteryDrop;
+  // Restore battery-drop timer
+  unsigned long now = millis();
+  battery.setLastDrop(now);
+  if (now < rtcLastBatteryDrop) {
+    rtcLastBatteryDrop = now;
   } else {
-    lastBatteryDrop = rtcLastBatteryDrop;
+    battery.setLastDrop(rtcLastBatteryDrop);
   }
 
-  // ── Start BLE advertising ──
+  // Restore move index
+  timing.reset();
+  rtcMoveIndex = 0;
+
+  // Start BLE advertising
   bleMouse.begin();
 }
 
 void loop() {
   if (bleMouse.isConnected()) {
     unsigned long now = millis();
-
-    // ── 1. Battery drain (non-linear curve) ──
-    if (now - lastBatteryDrop >= getDropInterval()) {
-      if (rtcBatteryLevel > 3) {
-        rtcBatteryLevel--;
-        bleMouse.setBatteryLevel(rtcBatteryLevel);
-      }
-      lastBatteryDrop   = now;
-      rtcLastBatteryDrop = now;
-    }
-
-    // ── 2. Random fluctuations ±1 % every ~2 h ──
-    if (now - lastFluctuation >= FLUCTUATION_INTERVAL) {
-      int8_t delta = (int8_t)(esp_random() % 3) - 1;   // -1, 0, +1
-      int16_t newLevel = (int16_t)rtcBatteryLevel + delta;
-      if (newLevel > 100) newLevel = 100;
-      if (newLevel < 3)   newLevel = 3;
-      rtcBatteryLevel = (uint8_t)newLevel;
-      bleMouse.setBatteryLevel(rtcBatteryLevel);
-      lastFluctuation = now;
-    }
-
-    // ── Connected timestamp (for deep sleep timeout) ──
     lastConnectedTime = now;
 
-    // ── Square pattern with random idle pauses ──
-    bleMouse.move( 1, 0);
-    delay(esp_random() % 20001);   // 0–20 s
-    maybeIdlePause();
+    // Update battery (drain + fluctuations) 
+    battery.update(now);
+    uint8_t lvl = battery.level();
+    bleMouse.setBatteryLevel(lvl);
+    rtcBatteryLevel = lvl;
 
-    bleMouse.move(-1, 0);
-    delay(esp_random() % 20001);
-    maybeIdlePause();
+    // Move 
+    Move m = timing.nextMove();
+    bleMouse.move(m.dx, m.dy);
+    delay(timing.moveDelay());
 
-    bleMouse.move( 0, 1);
-    delay(esp_random() % 20001);
-    maybeIdlePause();
-
-    bleMouse.move( 0, -1);
-    delay(esp_random() % 20001);
-    maybeIdlePause();
+    // Idle pause (random, after any move)
+    if (timing.maybeIdlePause()) {
+      delay(timing.idlePauseDuration());
+      if (bleMouse.isConnected()) {
+        lastConnectedTime = millis();
+      }
+    }
 
   } else {
-    // ── Disconnected ─────────────────────────────────
+    // Disconnected 
     if (lastConnectedTime == 0) {
       lastConnectedTime = millis();
     }

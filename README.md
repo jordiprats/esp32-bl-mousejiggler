@@ -1,34 +1,53 @@
 # ESP32 BLE Mouse Jiggler
 
-A mouse jiggler firmware for ESP32 boards (ESP32-C3, ESP32-S3, ESP32, etc.).  
-It emulates a Bluetooth HID mouse that periodically moves the cursor to prevent the computer from entering sleep / screensaver mode.  
-Includes **battery simulation**, **randomised timing**, **idle pauses**, and **deep sleep** to behave like a real wireless mouse.
+A mouse jiggler firmware for ESP32 boards (ESP32-C3, ESP32-S3, ESP32, etc.). It emulates a Bluetooth HID mouse that periodically moves the cursor to prevent the computer from entering sleep / screensaver mode.  
+Includes **battery simulation**, **randomised timing**, **idle pauses**, and **deep sleep** to look and behave like a real wireless mouse.
 
 ## How it works
 
-The device advertises itself as a **Logitech MX Master 4** Bluetooth mouse.  
+The device advertises as a BLE mouse with a configurable name (default: **ESP32 Mouse**).  
+Optionally you can impersonate a vendor product locally via an `config.local.h` (see [BLE identity](#ble-identity)).
 
-- **Connected:** moves the mouse in a small square pattern (1 px right, left, down, up). Each movement is spaced **~10 s apart ±10 s** (0–20 s delay) so the pattern is slow and natural.  
-  After **each individual move** there's a **~10 % chance to pause for 10–100 s** (simulating a user reading or watching something).
+- **Connected:** moves the mouse in a repeating super-cycle of patterns (**box → diagonal → box → other diagonal → box**, 16 moves total, zero net drift). Each movement is spaced **~10 s apart +/-10 s** (0–20 s delay). The alternating diagonals break the statistical regularity of a pure square pattern.  
+  After **each individual move** there's a **~10 % chance to pause for 10–100 s** – the pause can happen at any point in the pattern.
 
 - **Battery simulation:** on first boot it picks a random battery level between **60–100 %**, then drops **1 % on a non-linear discharge curve** (floor at **3 %**). The level is reported over BLE so the host OS can read it.
 
   | Level      | Drain rate       |
   |------------|------------------|
-  | 100–80 %   | 1 % / 6 h       |
-  | 80–10 %    | 1 % / 4 h       |
-  | 30–10 %    | 1 % / 2 h       |
+  | 100–81 %   | 1 % / 6 h       |
+  | 80–31 %    | 1 % / 4 h       |
+  | 30–11 %    | 1 % / 2 h       |
   | 10–3 %     | 1 % / 1 h       |
 
-  Random **±1 % fluctuations** occur every ~2 h to mimic noisy battery readings.
+  Random **+/-1 % fluctuations** occur once per drain step (same interval) to mimic noisy battery readings without outweighing the drain.
 
-- **Persistence:** battery level survives deep sleep and short power cycles (stored in RTC memory). If the saved level is **below 15 %** on boot, a fresh random value is chosen instead.
+- **Deep sleep persistence:** battery level survives deep sleep, if the saved level is **below 15 %** on boot, a fresh random value is chosen instead.
 - **Disconnected:** after **5 minutes** without a connection the device enters **deep sleep for 30 seconds**, then wakes up and advertises again. This saves power when not in use.
 
 ## Hardware
 
 - **Board:** Any ESP32 with BLE (ESP32-C3, ESP32-S3, ESP32, etc.)
 - **Framework:** Arduino (via PlatformIO)
+
+## Project structure
+
+```
+├── lib/mousejiggler/
+│   ├── config.h                Tunable constants (battery, timing, deep sleep)
+│   ├── battery.h/.cpp          Battery simulation logic (drain, fluctuations)
+│   └── timing.h/.cpp           Movement pattern generation & delays
+├── src/
+│   ├── config.local.h          Local overrides
+│   ├── config.local.h.example  Template for BLE identity override
+│   └── main.cpp                BLE integration & setup
+├── test/
+│   └── test_all.cpp            15 Unity tests
+├── platformio.ini
+└── README.md
+```
+
+The battery and timing modules are **hardware-independent** – they use a random callback so they can be unit-tested on your development machine.
 
 ## Build & Flash
 
@@ -68,25 +87,35 @@ pio env list
 pio device monitor --environment esp32-c3-zero
 ```
 
-## Configuration
+## Running unit tests
 
-Edit `platformio.ini` to change the board or monitor speed.  
-The device name and manufacturer are set in `src/main.cpp` – you can customise:
-
-```cpp
-BleMouse bleMouse("MX Master 4", "Logitech", 100);
+```bash
+pio test --environment test
 ```
 
-Key constants at the top of `main.cpp`:
+This compiles `battery.cpp` and `timing.cpp` with the native compiler and runs 15 Unity tests – no hardware needed.
+
+## BLE identity
+
+The device advertises as **"ESP32 Mouse"** by default. If you want to impersonate a vendor product (e.g. "MX Master 4" / "Logitech") for better compatibility, create a **local-only** override file:
+
+1. Copy `src/config.local.h.example` to `src/config.local.h`
+2. Edit the strings
+3. Build as usual
+
+**`config.local.h` is listed in `.gitignore` and will never be committed** – this avoids trademark issues if you publish the project publicly.
+
+## Configuration
+
+Key constants are in `lib/mousejiggler/config.h`:
 
 | Constant               | Default   | Description                         |
 |------------------------|-----------|-------------------------------------|
 | `DISCONNECT_TIMEOUT`   | 300 000 ms (5 min) | Idle before deep sleep   |
 | `DEEP_SLEEP_US`        | 30 s      | Wake interval when sleeping         |
-| `FLUCTUATION_INTERVAL` | 2 h       | Interval between ±1 % jitters      |
 | Battery floor          | 3 %       | Never drain below this              |
-| Movement interval      | ~10 s     | Average delay between moves (±10 s) |
-| Idle pause             | 10 %      | Chance to pause 10–100 s after each move |
+| Movement interval      | ~10 s     | Average delay between moves (+/-10 s) |
+| Idle pause             | 10 %      | Chance to pause 10–100 s after any move |
 
 The drain rate is **dynamic** – see the table above.
 
