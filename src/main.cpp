@@ -34,6 +34,9 @@ TimingGenerator  timing;
 unsigned long lastConnectedTime = 0;
 
 void setup() {
+
+  // Set lower CPU frequency to reduce heat (jiggler needs no performance)
+  setCpuFrequencyMhz(CPU_FREQ_MHZ);
   // Battery persistence
   battery.init(rtcBatteryLevel, rtcBatteryInit);
   rtcBatteryLevel = battery.level();

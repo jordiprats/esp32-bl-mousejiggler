@@ -36,7 +36,7 @@ void BatterySimulator::update(unsigned long now) {
     lastDrop_ = now;
   }
   if (now - lastFluctuation_ >= getDropInterval()) {
-    int8_t delta = static_cast<int8_t>((rng_() % 3) - 1);
+    int8_t delta = -static_cast<int8_t>(rng_() % 2);  // -1 or 0, never increase
     int16_t newLevel = static_cast<int16_t>(level_) + delta;
     if (newLevel > BATTERY_MAX) newLevel = BATTERY_MAX;
     if (newLevel < BATTERY_MIN) newLevel = BATTERY_MIN;

@@ -3,7 +3,7 @@
 #include "timing.h"
 #include "config.h"
 
-// ── Deterministic RNG for tests ─────────────────
+// Deterministic RNG for tests
 static uint32_t g_rng_counter = 0;
 static uint32_t testRng() {
   g_rng_counter = g_rng_counter * 1664525 + 1013904223;
@@ -14,7 +14,7 @@ void setUp(void) {
   g_rng_counter = 12345;
 }
 
-// ── Battery tests ───────────────────────────────
+// Battery tests
 
 void test_init_picks_random_when_uninitialised(void) {
   BatterySimulator bat(testRng);
@@ -83,7 +83,7 @@ void test_fluctuation_changes_level(void) {
   bat.setLastDrop(DRAIN_4H + 1);              // keep drain from firing
   bat.update(DRAIN_4H + 1);                   // triggers fluctuation
   uint8_t lvl = bat.level();
-  TEST_ASSERT(lvl >= 49 && lvl <= 51);
+  TEST_ASSERT(lvl == 49 || lvl == 50);
 }
 
 void test_fluctuation_clamps(void) {
@@ -96,7 +96,7 @@ void test_fluctuation_clamps(void) {
   TEST_ASSERT(bat.level() >= 3);
 }
 
-// ── Timing tests ────────────────────────────────
+// Timing tests
 
 void test_super_cycle_length(void) {
   TimingGenerator tg(testRng);
@@ -150,7 +150,7 @@ void test_idle_pause_duration_range(void) {
   }
 }
 
-// ── Runner ──────────────────────────────────────
+// Runner
 
 int main(void) {
   UnityBegin("test_all");

@@ -20,7 +20,7 @@ Optionally you can impersonate a vendor product locally via an `config.local.h` 
   | 30–11 %    | 1 % / 2 h       |
   | 10–3 %     | 1 % / 1 h       |
 
-  Random **+/-1 % fluctuations** occur once per drain step (same interval) to mimic noisy battery readings without outweighing the drain.
+  Random **0/-1 % fluctuations** occur once per drain step (same interval) to mimic noisy battery readings without outweighing the drain.
 
 - **Deep sleep persistence:** battery level survives deep sleep, if the saved level is **below 15 %** on boot, a fresh random value is chosen instead.
 - **Disconnected:** after **5 minutes** without a connection the device enters **deep sleep for 30 seconds**, then wakes up and advertises again. This saves power when not in use.

@@ -16,8 +16,6 @@ constexpr unsigned long DRAIN_4H = 14400000UL;   // >30 %
 constexpr unsigned long DRAIN_2H =  7200000UL;   // >10 %
 constexpr unsigned long DRAIN_1H =  3600000UL;   // ≤10 %
 
-// Fluctuations
-
 // Timing / movement
 constexpr unsigned long MOVE_DELAY_MAX    = 20000UL;   // 0–20 s jitter
 constexpr unsigned long IDLE_PAUSE_MIN    = 10000UL;   // 10 s
@@ -27,6 +25,9 @@ constexpr unsigned int  IDLE_PAUSE_PCT    = 10;        // ~10 % per move
 // Deep sleep
 constexpr unsigned long DISCONNECT_TIMEOUT = 300000UL;       // 5 min
 constexpr uint64_t     DEEP_SLEEP_US      = 30 * 1000000ULL;   // 30 s
+
+// Power / CPU
+constexpr uint8_t CPU_FREQ_MHZ = 80;   // MHz – lower = less heat
 
 // Movement pattern
 constexpr unsigned int MOVES_PER_SUPER_CYCLE = 16;
