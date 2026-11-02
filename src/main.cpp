@@ -23,6 +23,7 @@
 RTC_DATA_ATTR uint8_t      rtcBatteryLevel    = 0;
 RTC_DATA_ATTR unsigned long rtcLastBatteryDrop = 0;
 RTC_DATA_ATTR bool         rtcBatteryInit     = false;
+RTC_DATA_ATTR unsigned long rtcReconnectDelay = 5000UL;
 
 // Globals
 BleMouse       bleMouse(BLE_DEVICE_NAME, BLE_MANUFACTURER, 100);
@@ -59,6 +60,7 @@ void loop() {
 
   if (bleMouse.isConnected()) {
     lastConnectedTime = now;
+    rtcReconnectDelay = 5000UL;
 
     // Update battery (drain + fluctuations) – temp influences drain rate
     battery.update(now, temperatureRead());
@@ -84,10 +86,23 @@ void loop() {
     }
 
     if (now - lastConnectedTime >= DISCONNECT_TIMEOUT) {
+      // Flash LED if built-in LED is available
+#ifdef LED_BUILTIN
+      pinMode(LED_BUILTIN, OUTPUT);
+      for (int i = 0; i < 3; ++i) {
+        digitalWrite(LED_BUILTIN, HIGH);
+        delay(100);
+        digitalWrite(LED_BUILTIN, LOW);
+        delay(100);
+      }
+#endif
       esp_sleep_enable_timer_wakeup(DEEP_SLEEP_US);
       esp_deep_sleep_start();
     }
 
-    delay(5000);
+    delay(rtcReconnectDelay);
+    // Increase backoff by 3%, cap at 3 minutes
+    rtcReconnectDelay = (rtcReconnectDelay * 103UL) / 100UL;
+    if (rtcReconnectDelay > 180000UL) rtcReconnectDelay = 180000UL;
   }
 }
