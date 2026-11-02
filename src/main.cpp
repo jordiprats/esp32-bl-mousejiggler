@@ -86,16 +86,16 @@ void loop() {
     }
 
     if (now - lastConnectedTime >= DISCONNECT_TIMEOUT) {
-      // Flash LED if built-in LED is available
-#ifdef LED_BUILTIN
-      pinMode(LED_BUILTIN, OUTPUT);
-      for (int i = 0; i < 3; ++i) {
-        digitalWrite(LED_BUILTIN, HIGH);
-        delay(100);
-        digitalWrite(LED_BUILTIN, LOW);
-        delay(100);
+      // Flash LED if a GPIO is configured
+      if (kLedGpio >= 0) {
+        pinMode(kLedGpio, OUTPUT);
+        for (int i = 0; i < 3; ++i) {
+          digitalWrite(kLedGpio, HIGH);
+          delay(500);
+          digitalWrite(kLedGpio, LOW);
+          delay(500);
+        }
       }
-#endif
       esp_sleep_enable_timer_wakeup(DEEP_SLEEP_US);
       esp_deep_sleep_start();
     }

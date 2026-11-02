@@ -3,6 +3,15 @@
 
 #include <cstdint>
 
+// LED GPIO – set to -1 if no LED, or override in config.local.h
+#ifndef LED_GPIO
+#if defined(LED_BUILTIN)
+#define LED_GPIO LED_BUILTIN
+#else
+#define LED_GPIO 2
+#endif
+#endif
+
 // Battery
 constexpr uint8_t  BATTERY_MIN          = 3;
 constexpr uint8_t  BATTERY_MAX          = 100;
@@ -27,6 +36,9 @@ constexpr unsigned int  IDLE_PAUSE_PCT    = 10;        // ~10 % per move
 // Deep sleep
 constexpr unsigned long DISCONNECT_TIMEOUT = 300000UL;       // 5 min
 constexpr uint64_t     DEEP_SLEEP_US      = 30 * 1000000ULL;   // 30 s
+
+// LED flash
+constexpr int kLedGpio = LED_GPIO;
 
 // Power / CPU
 constexpr uint8_t CPU_FREQ_MHZ = 80;   // MHz - 80 is the lowest, at 40 BL radio dont work
