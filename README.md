@@ -26,7 +26,13 @@ Optionally you can impersonate a vendor product locally via an `config.local.h` 
   Special behavior at **100 %**: the first drop to 99 % happens after a **random 10–20 minutes** (simulating a full battery that briefly stays at 100 %). After that, the normal drain schedule takes over.
 
 - **Deep sleep persistence:** battery level survives deep sleep, if the saved level is **below 15 %** on boot, a fresh random value is chosen instead.
-- **Disconnected:** after **5 minutes** without a connection the device enters **deep sleep for 30 seconds**, then wakes up and advertises again. This saves power when not in use.
+- **Disconnected:** after **5 minutes** without a connection the device enters **deep sleep** (starting at 30 s, +5 % each sleep cycle, capped at 3 min). Both the reconnect delay and the sleep duration include **±10 % random jitter** to avoid synchronisation.
+
+  - **Reconnect backoff:** starts at **5 s**, increases by **3 %** each retry, capped at **3 min**.
+  - **On cold boot** (power restore) the first retry waits **10 minutes** to give the PC time to boot.
+  - **LED flash** (GPIO 2 by default, override via `config.local.h`) blinks three times before deep sleep.
+
+  All retry/sleep counters are preserved across deep sleep via RTC memory. When connection is re‑established, both counters reset.
 
 ## Hardware
 
@@ -121,8 +127,9 @@ Key constants are in `lib/mousejiggler/config.h`:
 | Constant               | Default   | Description                         |
 |------------------------|-----------|-------------------------------------|
 | `DISCONNECT_TIMEOUT`   | 300 s (5 min) | Idle before deep sleep           |
-| `DEEP_SLEEP_US`        | 30 s      | Wake interval when sleeping         |
+| `DEEP_SLEEP_US`        | 30 s      | Base deep-sleep duration (increases 5 %/cycle, cap 3 min) |
 | `CPU_FREQ_MHZ`         | 80        | CPU frequency (MHz) – keeps PLL active for BT |
+| `LED_GPIO`             | 2         | GPIO for LED flash before sleep (-1 to disable) |
 | Battery floor          | 3 %       | Never drain below this              |
 | Movement delay         | 0–20 s    | Jittered delay between moves        |
 | Idle pause             | 10 %      | Chance to pause 10–100 s after any move |
