@@ -16,11 +16,14 @@ BatterySimulator::BatterySimulator(RngFunc rng)
 
 uint8_t BatterySimulator::level() const { return level_; }
 unsigned long BatterySimulator::lastDrop() const { return lastDrop_; }
+unsigned long BatterySimulator::lastFluctuation() const { return lastFluctuation_; }
+unsigned long BatterySimulator::firstDropInterval() const { return firstDropInterval_; }
 void BatterySimulator::setLastDrop(unsigned long t) { lastDrop_ = t; }
 void BatterySimulator::setLastFluctuation(unsigned long t) { lastFluctuation_ = t; }
+void BatterySimulator::setFirstDropInterval(unsigned long t) { firstDropInterval_ = t; }
 void BatterySimulator::setLevel(uint8_t lvl) { level_ = lvl; }
 
-void BatterySimulator::init(uint8_t savedLevel, bool wasInitialised) {
+void BatterySimulator::init(uint8_t savedLevel, bool wasInitialised, unsigned long savedFirstDropInterval) {
   if (!wasInitialised || savedLevel < BATTERY_RECOVERY_MIN) {
     uint32_t range = BATTERY_INIT_MAX - BATTERY_INIT_MIN + 1;
     level_ = BATTERY_INIT_MIN + (rng_() % range);
@@ -29,10 +32,14 @@ void BatterySimulator::init(uint8_t savedLevel, bool wasInitialised) {
   }
   initialised_ = true;
 
-  // If starting at 100 %, set a random 10-20 min first-drop timer
+  // If starting at 100 %, use saved interval or generate a random 10-20 min one
   if (level_ == BATTERY_MAX) {
-    uint32_t range = DRAIN_FIRST_DROP_MAX - DRAIN_FIRST_DROP_MIN + 1;
-    firstDropInterval_ = DRAIN_FIRST_DROP_MIN + (rng_() % range);
+    if (savedFirstDropInterval > 0) {
+      firstDropInterval_ = savedFirstDropInterval;
+    } else {
+      uint32_t range = DRAIN_FIRST_DROP_MAX - DRAIN_FIRST_DROP_MIN + 1;
+      firstDropInterval_ = DRAIN_FIRST_DROP_MIN + (rng_() % range);
+    }
   } else {
     firstDropInterval_ = 0;
   }

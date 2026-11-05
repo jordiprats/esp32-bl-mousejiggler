@@ -124,15 +124,19 @@ The device advertises as **"ESP32 Mouse"** by default. If you want to use a cust
 
 Key constants are in `lib/mousejiggler/config.h`:
 
-| Constant               | Default   | Description                         |
-|------------------------|-----------|-------------------------------------|
-| `DISCONNECT_TIMEOUT`   | 300 s (5 min) | Idle before deep sleep           |
-| `DEEP_SLEEP_US`        | 30 s      | Base deep-sleep duration (increases 5 %/cycle, cap 3 min) |
-| `CPU_FREQ_MHZ`         | 80        | CPU frequency (MHz) – keeps PLL active for BT |
-| `LED_GPIO`             | 2         | GPIO for LED flash before sleep (-1 to disable) |
-| Battery floor          | 3 %       | Never drain below this              |
-| Movement delay         | 0–20 s    | Jittered delay between moves        |
-| Idle pause             | 10 %      | Chance to pause 10–100 s after any move |
+| Constant                   | Default   | Description                         |
+|----------------------------|-----------|-------------------------------------|
+| `DISCONNECT_TIMEOUT`       | 300 s (5 min) | Idle before deep sleep           |
+| `DEEP_SLEEP_US`            | 30 s      | Base deep-sleep duration (increases 5 %/cycle) |
+| `MAX_DEEP_SLEEP_US`        | 180 s     | Cap for deep-sleep duration         |
+| `INIT_RECONNECT_DELAY_MS`  | 5 s       | Initial reconnect backoff           |
+| `MAX_RECONNECT_DELAY_MS`   | 180 s     | Cap for reconnect backoff           |
+| `COLD_BOOT_DELAY_MS`       | 600 s     | First retry delay after power‑up    |
+| `CPU_FREQ_MHZ`             | 80        | CPU frequency (MHz) – keeps PLL active for BT |
+| `LED_GPIO`                 | 2         | GPIO for LED flash before sleep (-1 to disable) |
+| Battery floor              | 3 %       | Never drain below this              |
+| Movement delay             | 0–20 s    | Jittered delay between moves        |
+| Idle pause                 | 10 %      | Chance to pause 10–100 s after any move |
 
 The drain rate is **dynamic** – see the table above.
 

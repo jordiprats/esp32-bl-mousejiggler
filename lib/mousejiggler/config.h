@@ -37,8 +37,17 @@ constexpr unsigned int  IDLE_PAUSE_PCT    = 10;        // ~10 % per move
 constexpr unsigned long DISCONNECT_TIMEOUT = 300000UL;       // 5 min
 constexpr uint64_t     DEEP_SLEEP_US      = 30 * 1000000ULL;   // 30 s
 
-// LED flash
+// LED flash – GPIO for a 3× 500 ms blink before deep sleep
+// Set to -1 to disable. Override via LED_GPIO in config.local.h.
 constexpr int kLedGpio = LED_GPIO;
+
+// Reconnect backoff
+constexpr unsigned long INIT_RECONNECT_DELAY_MS = 5000UL;      // 5 s
+constexpr unsigned long MAX_RECONNECT_DELAY_MS   = 180000UL;    // 3 min
+constexpr unsigned long COLD_BOOT_DELAY_MS        = 600000UL;   // 10 min
+
+// Deep sleep escalation
+constexpr uint64_t MAX_DEEP_SLEEP_US = 180000000ULL;           // 3 min
 
 // Power / CPU
 constexpr uint8_t CPU_FREQ_MHZ = 80;   // MHz - 80 is the lowest, at 40 BL radio dont work

@@ -9,12 +9,15 @@ public:
   using RngFunc = uint32_t (*)();
 
   BatterySimulator(RngFunc rng = nullptr);
-  void   init(uint8_t savedLevel, bool wasInitialised);
+  void   init(uint8_t savedLevel, bool wasInitialised, unsigned long savedFirstDropInterval = 0);
   void   update(unsigned long now, float tempCelsius = -1.0f);
   uint8_t      level() const;
   unsigned long lastDrop() const;
+  unsigned long lastFluctuation() const;
+  unsigned long firstDropInterval() const;
   void         setLastDrop(unsigned long t);
   void         setLastFluctuation(unsigned long t);
+  void         setFirstDropInterval(unsigned long t);
   void         setLevel(uint8_t lvl);
 
 private:
