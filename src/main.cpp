@@ -21,13 +21,13 @@
 #endif
 
 // RTC-retained variables
-RTC_DATA_ATTR uint8_t      rtcBatteryLevel    = 0;
-RTC_DATA_ATTR unsigned long rtcLastBatteryDrop = 0;
-RTC_DATA_ATTR bool         rtcBatteryInit     = false;
-RTC_DATA_ATTR unsigned long rtcReconnectDelay     = INIT_RECONNECT_DELAY_MS;
-RTC_DATA_ATTR uint64_t      rtcDeepSleepUs        = DEEP_SLEEP_US;
-RTC_DATA_ATTR unsigned long rtcFirstDropInterval  = 0;
-RTC_DATA_ATTR unsigned long rtcLastFluctuation    = 0;
+RTC_DATA_ATTR uint8_t       rtcBatteryLevel      = 0;
+RTC_DATA_ATTR unsigned long rtcLastBatteryDrop   = 0;
+RTC_DATA_ATTR bool          rtcBatteryInit       = false;
+RTC_DATA_ATTR unsigned long rtcReconnectDelay    = INIT_RECONNECT_DELAY_MS;
+RTC_DATA_ATTR uint64_t      rtcDeepSleepUs       = DEEP_SLEEP_US;
+RTC_DATA_ATTR unsigned long rtcFirstDropInterval = 0;
+RTC_DATA_ATTR unsigned long rtcLastFluctuation   = 0;
 
 // Globals
 BleMouse       bleMouse(BLE_DEVICE_NAME, BLE_MANUFACTURER, 100);
