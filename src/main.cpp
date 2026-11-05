@@ -112,7 +112,7 @@ void loop() {
     battery.update(now, temperatureRead());
     uint8_t lvl = battery.level();
     bleMouse.setBatteryLevel(lvl);
-    rtcBatteryLevel      = lvl;
+    rtcBatteryLevel       = lvl;
     rtcLastBatteryDrop    = battery.lastDrop();
     rtcFirstDropInterval  = battery.firstDropInterval();
     rtcLastFluctuation    = battery.lastFluctuation();
