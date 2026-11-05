@@ -30,7 +30,7 @@ RTC_DATA_ATTR unsigned long rtcFirstDropInterval = 0;
 RTC_DATA_ATTR unsigned long rtcLastFluctuation   = 0;
 
 // Globals
-BleMouse       bleMouse(BLE_DEVICE_NAME, BLE_MANUFACTURER, 100);
+BleMouse         bleMouse(BLE_DEVICE_NAME, BLE_MANUFACTURER, 100);
 BatterySimulator battery;
 TimingGenerator  timing;
 
@@ -91,7 +91,7 @@ void loop() {
     battery.update(now, temperatureRead());
     uint8_t lvl = battery.level();
     bleMouse.setBatteryLevel(lvl);
-    rtcBatteryLevel      = lvl;
+    rtcBatteryLevel       = lvl;
     rtcLastBatteryDrop    = battery.lastDrop();
     rtcFirstDropInterval  = battery.firstDropInterval();
     rtcLastFluctuation    = battery.lastFluctuation();
