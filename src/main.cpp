@@ -2,16 +2,17 @@
 #include <BleMouse.h>
 #include <esp_sleep.h>
 #include <esp_system.h>
-#include <config.h>
 #include <battery.h>
 #include <timing.h>
 
-// Optional local override for BLE device identity
+// Local override (BLE identity, LED GPIO, etc.) – must precede config.h
 #ifdef __has_include
 #if __has_include("config.local.h")
 #include "config.local.h"
 #endif
 #endif
+
+#include <config.h>
 
 #ifndef BLE_DEVICE_NAME
 #define BLE_DEVICE_NAME  "ESP32 Mouse"
