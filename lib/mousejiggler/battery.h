@@ -28,6 +28,9 @@ private:
   unsigned long firstDropInterval_;
   bool          initialised_;
   RngFunc       rng_;
+  // Heat‑triggered extra drain
+  bool          heatDropScheduled_;
+  unsigned long heatDropTime_;
   unsigned long getDropInterval() const;
 };
 

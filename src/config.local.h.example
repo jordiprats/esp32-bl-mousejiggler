@@ -1,4 +1,4 @@
-// Local override for BLE device identity and LED GPIO
+// Local override for BLE device identity and fake SSID
 // Copy this file to config.local.h and customise the values.
 // config.local.h is gitignored – it will not be committed.
 //
@@ -7,5 +7,6 @@
 #define BLE_DEVICE_NAME  "Mouse Jiggler"
 #define BLE_MANUFACTURER "DIY Electronics"
 
-// LED flash GPIO (set to -1 to disable flashing)
-#define LED_GPIO 2
+// Fake SSID beacon – disable if not needed, or change the network name
+// #define FAKE_SSID_ENABLED false
+// #define FAKE_SSID "iPhone"

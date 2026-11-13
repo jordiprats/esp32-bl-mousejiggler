@@ -12,7 +12,8 @@ static uint32_t defaultRng() { return static_cast<uint32_t>(rand()); }
 BatterySimulator::BatterySimulator(RngFunc rng)
   : level_(0), lastDrop_(0), lastFluctuation_(0),
     lastTemp_(0.0f), firstDropInterval_(0),
-    initialised_(false), rng_(rng ? rng : defaultRng) {}
+    initialised_(false), rng_(rng ? rng : defaultRng),
+    heatDropScheduled_(false), heatDropTime_(0) {}
 
 uint8_t BatterySimulator::level() const { return level_; }
 unsigned long BatterySimulator::lastDrop() const { return lastDrop_; }
@@ -31,6 +32,8 @@ void BatterySimulator::init(uint8_t savedLevel, bool wasInitialised, unsigned lo
     level_ = savedLevel;
   }
   initialised_ = true;
+  heatDropScheduled_ = false;
+  heatDropTime_ = 0;
 
   // If starting at 100 %, use saved interval or generate a random 10-20 min one
   if (level_ == BATTERY_MAX) {
@@ -51,20 +54,37 @@ void BatterySimulator::update(unsigned long now, float tempCelsius) {
     ? firstDropInterval_
     : getDropInterval();
 
-  // ── Drain ──
+  // ── Normal drain (1 % at interval boundary) ──
   if (now - lastDrop_ >= interval) {
     if (level_ > BATTERY_MIN) {
-      if (lastTemp_ > 0.0f && tempCelsius > lastTemp_) {
-        // Chip hotter than last drain → extra drain from heat
-        level_ -= (level_ - 1 > BATTERY_MIN) ? 2 : 1;
-      } else {
-        level_--;
-      }
+      level_--;
     }
     lastDrop_ = now;
     lastTemp_ = tempCelsius;
     // After draining from 100 %, clear the special first-drop interval
     firstDropInterval_ = 0;
+    // Reset any pending heat drop – we're in a new interval now
+    heatDropScheduled_ = false;
+  }
+
+  // ── Heat‑triggered extra drain ──
+  // If chip is hotter than last measurement and no heat drop is scheduled yet,
+  // schedule one at a random offset within the current interval.
+  if (lastTemp_ > 0.0f && tempCelsius > lastTemp_ && !heatDropScheduled_) {
+    // Random offset between 0 and (interval - 1) ms from the last drop
+    uint32_t offset = rng_() % interval;
+    heatDropTime_ = lastDrop_ + offset;
+    heatDropScheduled_ = true;
+  }
+  // Fire the scheduled heat drop only if chip is still hotter than baseline
+  if (heatDropScheduled_ && now >= heatDropTime_ && level_ > BATTERY_MIN) {
+    if (tempCelsius > lastTemp_) {
+      level_--;
+      // Update baseline so we don't schedule another heat drop until the
+      // next normal drain (which also updates lastTemp_).
+      lastTemp_ = tempCelsius;
+    }
+    heatDropScheduled_ = false;
   }
 
   // ── Fluctuation ──

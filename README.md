@@ -1,12 +1,12 @@
 # ESP32 BLE Mouse Jiggler
 
 A mouse jiggler firmware for ESP32 boards (ESP32-C3, ESP32-S3, ESP32, etc.). It emulates a Bluetooth HID mouse that periodically moves the cursor to prevent the computer from entering sleep / screensaver mode.  
-Includes **battery simulation**, **randomised timing**, **idle pauses**, and **deep sleep** to look and behave like a real wireless mouse.
+Includes **battery simulation**, **randomised timing**, **idle pauses**, and a **fake WiFi SSID beacon** for camouflage.
 
 ## How it works
 
 The device advertises as a BLE mouse with a configurable name (default: **ESP32 Mouse**).  
-Optionally you can impersonate a vendor product locally via an `config.local.h` (see [BLE identity](#ble-identity)).
+Optionally you can impersonate a vendor product locally via a `config.local.h` (see [BLE identity](#ble-identity)).
 
 - **Connected:** moves the mouse in a repeating super-cycle of patterns (**box → diagonal → box → other diagonal → box**, 16 moves total, zero net drift). Each movement is spaced **~10 s apart +/-10 s** (0–20 s delay). The alternating diagonals break the statistical regularity of a pure square pattern.  
   After **each individual move** there's a **~10 % chance to pause for 10–100 s** – the pause can happen at any point in the pattern.
@@ -25,14 +25,12 @@ Optionally you can impersonate a vendor product locally via an `config.local.h` 
 
   Special behavior at **100 %**: the first drop to 99 % happens after a **random 10–20 minutes** (simulating a full battery that briefly stays at 100 %). After that, the normal drain schedule takes over.
 
-- **Deep sleep persistence:** battery level survives deep sleep, if the saved level is **below 15 %** on boot, a fresh random value is chosen instead.
-- **Disconnected:** after **5 minutes** without a connection the device enters **deep sleep** (starting at 30 s, +5 % each sleep cycle, capped at 3 min). Both the reconnect delay and the sleep duration include **±10 % random jitter** to avoid synchronisation.
+- **Disconnected:** the device keeps trying to reconnect with **exponential backoff** – starts at **5 s**, increases by **3 %** each retry, capped at **3 min**. Each wait includes **±10 % random jitter** to avoid synchronisation.
 
-  - **Reconnect backoff:** starts at **5 s**, increases by **3 %** each retry, capped at **3 min**.
   - **On cold boot** (power restore) the first retry waits **10 minutes** to give the PC time to boot.
-  - **LED flash** (GPIO 2 by default, override via `config.local.h`) blinks three times before deep sleep.
+  - When connection is re‑established, the backoff resets.
 
-  All retry/sleep counters are preserved across deep sleep via RTC memory. When connection is re‑established, both counters reset.
+- **Fake SSID beacon:** the device also runs a WiFi access point with a configurable SSID (default: `"iPhone"`). This camouflages it as a personal hotspot – useful if a network scan would otherwise reveal an unknown device.
 
 ## Hardware
 
@@ -43,13 +41,13 @@ Optionally you can impersonate a vendor product locally via an `config.local.h` 
 
 ```
 ├── lib/mousejiggler/
-│   ├── config.h                Tunable constants (battery, timing, deep sleep, CPU)
+│   ├── config.h                Tunable constants (battery, timing, WiFi, CPU)
 │   ├── battery.h/.cpp          Battery simulation (drain, fluctuations, temp)
 │   └── timing.h/.cpp           Movement pattern generation & delays
 ├── src/
 │   ├── config.local.h          Local overrides (gitignored)
-│   ├── config.local.h.example  Template for BLE identity override
-│   └── main.cpp                BLE integration & setup
+│   ├── config.local.h.example  Template for overrides
+│   └── main.cpp                BLE integration, WiFi AP beacon & setup
 ├── test/
 │   └── test_all.cpp            15 Unity tests
 ├── .github/workflows/
@@ -120,20 +118,32 @@ The device advertises as **"ESP32 Mouse"** by default. If you want to use a cust
 
 **`config.local.h` is listed in `.gitignore` and will never be committed** – this avoids trademark issues if you publish the project publicly.
 
+## Fake SSID beacon
+
+The device runs a WiFi access point that advertises a configurable SSID (default `"iPhone"`).  
+Configure via `config.local.h`:
+
+```cpp
+#define FAKE_SSID_ENABLED true
+#define FAKE_SSID "iPhone"
+```
+
+Set `FAKE_SSID_ENABLED false` to disable the WiFi AP entirely.
+
+The AP is open (no password) and runs no web server – it just beacons the SSID for camouflage.
+
 ## Configuration
 
 Key constants are in `lib/mousejiggler/config.h`:
 
 | Constant                   | Default   | Description                         |
 |----------------------------|-----------|-------------------------------------|
-| `DISCONNECT_TIMEOUT`       | 300 s (5 min) | Idle before deep sleep           |
-| `DEEP_SLEEP_US`            | 30 s      | Base deep-sleep duration (increases 5 %/cycle) |
-| `MAX_DEEP_SLEEP_US`        | 180 s     | Cap for deep-sleep duration         |
 | `INIT_RECONNECT_DELAY_MS`  | 5 s       | Initial reconnect backoff           |
 | `MAX_RECONNECT_DELAY_MS`   | 180 s     | Cap for reconnect backoff           |
 | `COLD_BOOT_DELAY_MS`       | 600 s     | First retry delay after power‑up    |
 | `CPU_FREQ_MHZ`             | 80        | CPU frequency (MHz) – keeps PLL active for BT |
-| `LED_GPIO`                 | 2         | GPIO for LED flash before sleep (-1 to disable) |
+| `FAKE_SSID_ENABLED`        | true      | Enable/disable WiFi AP beacon       |
+| `FAKE_SSID`                | "iPhone"  | SSID broadcast by the AP            |
 | Battery floor              | 3 %       | Never drain below this              |
 | Movement delay             | 0–20 s    | Jittered delay between moves        |
 | Idle pause                 | 10 %      | Chance to pause 10–100 s after any move |

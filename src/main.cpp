@@ -1,15 +1,18 @@
-#include <Arduino.h>
-#include <BleMouse.h>
-#include <esp_sleep.h>
-#include <esp_system.h>
-#include <battery.h>
-#include <timing.h>
-
-// Local override (BLE identity, LED GPIO, etc.) – must precede config.h
+// Local override – must precede all other includes so config.h sees the overrides
 #ifdef __has_include
 #if __has_include("config.local.h")
 #include "config.local.h"
 #endif
+#endif
+
+#include <Arduino.h>
+#include <BleMouse.h>
+#include <esp_system.h>
+#include <battery.h>
+#include <timing.h>
+
+#if FAKE_SSID_ENABLED
+#include <WiFi.h>
 #endif
 
 #include <config.h>
@@ -21,14 +24,10 @@
 #define BLE_MANUFACTURER "Espressif"
 #endif
 
-// RTC-retained variables
-RTC_DATA_ATTR uint8_t       rtcBatteryLevel      = 0;
-RTC_DATA_ATTR unsigned long rtcLastBatteryDrop   = 0;
-RTC_DATA_ATTR bool          rtcBatteryInit       = false;
-RTC_DATA_ATTR unsigned long rtcReconnectDelay    = INIT_RECONNECT_DELAY_MS;
-RTC_DATA_ATTR uint64_t      rtcDeepSleepUs       = DEEP_SLEEP_US;
-RTC_DATA_ATTR unsigned long rtcFirstDropInterval = 0;
-RTC_DATA_ATTR unsigned long rtcLastFluctuation   = 0;
+// Backoff state (persists across loop iterations, reset on connect)
+unsigned long reconnectDelay = INIT_RECONNECT_DELAY_MS;
+
+
 
 // Globals
 BleMouse         bleMouse(BLE_DEVICE_NAME, BLE_MANUFACTURER, 100);
@@ -50,34 +49,22 @@ void setup() {
   // Lower CPU frequency
   setCpuFrequencyMhz(CPU_FREQ_MHZ);
 
-  // Battery persistence (first-drop interval is restored from RTC inside init)
-  battery.init(rtcBatteryLevel, rtcBatteryInit, rtcFirstDropInterval);
-  rtcBatteryLevel = battery.level();
-  rtcBatteryInit  = true;
+  // Battery – start with a fresh random level on each power-up
+  battery.init(0, false);
   bleMouse.batteryLevel = battery.level();
 
-  // Restore battery-drop timer
-  unsigned long now = millis();
-  battery.setLastDrop(now);
-  if (now < rtcLastBatteryDrop) {
-    rtcLastBatteryDrop = now;
-  } else {
-    battery.setLastDrop(rtcLastBatteryDrop);
-  }
-
-  // Restore fluctuation timer
-  if (rtcLastFluctuation > 0) {
-    battery.setLastFluctuation(rtcLastFluctuation);
-  }
-
-  // On cold boot (not deep-sleep wakeup), wait 10 min before first connect attempt
-  // to give the PC time to boot after power restore.
-  if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED) {
-    rtcReconnectDelay = COLD_BOOT_DELAY_MS;
-  }
+  // Set a long initial reconnect delay so the PC has time to boot
+  reconnectDelay = COLD_BOOT_DELAY_MS;
 
   // Start BLE advertising
   bleMouse.begin();
+
+#if FAKE_SSID_ENABLED
+  // Beacon a single fake SSID – pure AP, no web UI
+  delay(100);
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(FAKE_SSID);
+#endif
 }
 
 void loop() {
@@ -85,17 +72,11 @@ void loop() {
 
   if (bleMouse.isConnected()) {
     lastConnectedTime = now;
-    rtcReconnectDelay = INIT_RECONNECT_DELAY_MS;
-    rtcDeepSleepUs    = DEEP_SLEEP_US;
+    reconnectDelay = INIT_RECONNECT_DELAY_MS;
 
     // Update battery (drain + fluctuations) – temp influences drain rate
     battery.update(now, temperatureRead());
-    uint8_t lvl = battery.level();
-    bleMouse.setBatteryLevel(lvl);
-    rtcBatteryLevel       = lvl;
-    rtcLastBatteryDrop    = battery.lastDrop();
-    rtcFirstDropInterval  = battery.firstDropInterval();
-    rtcLastFluctuation    = battery.lastFluctuation();
+    bleMouse.setBatteryLevel(battery.level());
 
     // Move
     Move m = timing.nextMove();
@@ -111,42 +92,18 @@ void loop() {
   } else {
     // Disconnected – keep battery draining even when not connected
     battery.update(now, temperatureRead());
-    uint8_t lvl = battery.level();
-    bleMouse.setBatteryLevel(lvl);
-    rtcBatteryLevel       = lvl;
-    rtcLastBatteryDrop    = battery.lastDrop();
-    rtcFirstDropInterval  = battery.firstDropInterval();
-    rtcLastFluctuation    = battery.lastFluctuation();
+    bleMouse.setBatteryLevel(battery.level());
 
     if (lastConnectedTime == 0) {
       lastConnectedTime = now;
     }
 
-    if (now - lastConnectedTime >= DISCONNECT_TIMEOUT) {
-      // Flash LED if a GPIO is configured
-      if (kLedGpio >= 0) {
-        pinMode(kLedGpio, OUTPUT);
-        for (int i = 0; i < 3; ++i) {
-          digitalWrite(kLedGpio, HIGH);
-          delay(500);
-          digitalWrite(kLedGpio, LOW);
-          delay(500);
-        }
-      }
-      // Increase deep-sleep duration by 5% each cycle, cap at 3 min
-      rtcDeepSleepUs = (rtcDeepSleepUs * 105UL) / 100UL;
-      if (rtcDeepSleepUs > MAX_DEEP_SLEEP_US) rtcDeepSleepUs = MAX_DEEP_SLEEP_US;
-      // Jitter by +/-10%
-      uint64_t sleepUs = (uint64_t)jitterSigned((int64_t)rtcDeepSleepUs, 10);
-      esp_sleep_enable_timer_wakeup(sleepUs);
-      esp_deep_sleep_start();
-    }
-
-    // Jitter the reconnect delay by +/-10%
-    unsigned long actualDelay = (unsigned long)jitterSigned((int64_t)rtcReconnectDelay, 10);
+    // Wait with jittered exponential backoff, then retry advertising
+    unsigned long actualDelay = (unsigned long)jitterSigned((int64_t)reconnectDelay, 10);
     delay(actualDelay);
+
     // Increase backoff by 3%, cap at 3 minutes
-    rtcReconnectDelay = (rtcReconnectDelay * 103UL) / 100UL;
-    if (rtcReconnectDelay > MAX_RECONNECT_DELAY_MS) rtcReconnectDelay = MAX_RECONNECT_DELAY_MS;
+    reconnectDelay = (reconnectDelay * 103UL) / 100UL;
+    if (reconnectDelay > MAX_RECONNECT_DELAY_MS) reconnectDelay = MAX_RECONNECT_DELAY_MS;
   }
 }
