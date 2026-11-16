@@ -53,9 +53,6 @@ void setup() {
   battery.init(0, false);
   bleMouse.batteryLevel = battery.level();
 
-  // Set a long initial reconnect delay so the PC has time to boot
-  reconnectDelay = COLD_BOOT_DELAY_MS;
-
   // Start BLE advertising
   bleMouse.begin();
 

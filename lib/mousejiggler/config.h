@@ -27,7 +27,6 @@ constexpr unsigned int  IDLE_PAUSE_PCT    = 10;        // ~10 % per move
 // Reconnect backoff
 constexpr unsigned long INIT_RECONNECT_DELAY_MS = 5000UL;      // 5 s
 constexpr unsigned long MAX_RECONNECT_DELAY_MS   = 180000UL;    // 3 min
-constexpr unsigned long COLD_BOOT_DELAY_MS        = 600000UL;   // 10 min
 
 // Fake SSID beacon (WiFi AP mode) – camouflages the device as a WiFi access point.
 // The device cycles through up to 3 SSIDs so a scanner sees different networks.

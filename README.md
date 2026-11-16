@@ -27,7 +27,6 @@ Optionally you can impersonate a vendor product locally via a `config.local.h` (
 
 - **Disconnected:** the device keeps trying to reconnect with **exponential backoff** – starts at **5 s**, increases by **3 %** each retry, capped at **3 min**. Each wait includes **±10 % random jitter** to avoid synchronisation.
 
-  - **On cold boot** (power restore) the first retry waits **10 minutes** to give the PC time to boot.
   - When connection is re‑established, the backoff resets.
 
 - **Fake SSID beacon:** the device also runs a WiFi access point with a configurable SSID (default: `"iPhone"`). This camouflages it as a personal hotspot – useful if a network scan would otherwise reveal an unknown device.
@@ -140,7 +139,6 @@ Key constants are in `lib/mousejiggler/config.h`:
 |----------------------------|-----------|-------------------------------------|
 | `INIT_RECONNECT_DELAY_MS`  | 5 s       | Initial reconnect backoff           |
 | `MAX_RECONNECT_DELAY_MS`   | 180 s     | Cap for reconnect backoff           |
-| `COLD_BOOT_DELAY_MS`       | 600 s     | First retry delay after power‑up    |
 | `CPU_FREQ_MHZ`             | 80        | CPU frequency (MHz) – keeps PLL active for BT |
 | `FAKE_SSID_ENABLED`        | true      | Enable/disable WiFi AP beacon       |
 | `FAKE_SSID`                | "iPhone"  | SSID broadcast by the AP            |
